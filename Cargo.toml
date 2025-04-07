@@ -5,6 +5,6 @@ authors = ["Westbot"]
 description = "The Turing mod scripting API for Beat Saber"
 repository = "https://github.com/westbot657/Turing-api-rs"
 edition = "2021"
-license = "GPL-3"
+license = "GPL-3.0-only"
 
 [dependencies]

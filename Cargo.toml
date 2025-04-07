@@ -1,6 +1,6 @@
 [package]
 name = "turing-api"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Westbot"]
 description = "The Turing mod scripting API for Beat Saber"
 repository = "https://github.com/westbot657/Turing-api-rs"

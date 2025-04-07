@@ -28,7 +28,7 @@ extern "C" {
 
 macro_rules! cstr {
     ( $str:expr ) => {
-        CString::new($str).unwrap();
+        CString::new($str).unwrap()
     };
 }
 

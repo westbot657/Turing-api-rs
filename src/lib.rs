@@ -1,29 +1,125 @@
 use std::ffi::{c_char, CString};
+use paste::paste;
 
 macro_rules! typed_ptr {
     ( $name:ident ) => {
         #[repr(C)]
+        #[derive(Copy, Clone)]
         pub struct $name {
             ptr: *mut c_char
         }
     };
 }
 
+typed_ptr!(_Color);
 typed_ptr!(_ColorNote);
 typed_ptr!(_BombNote);
+typed_ptr!(_ChainHeadNote);
+typed_ptr!(_ChainLinkNote);
+typed_ptr!(_ChainNote);
 typed_ptr!(_Arc);
 typed_ptr!(_Wall);
 typed_ptr!(_Saber);
-typed_ptr!(_Player);
+// typed_ptr!(_Player);
+typed_ptr!(_Vec2);
+typed_ptr!(_Vec3);
+typed_ptr!(_Vec4);
+typed_ptr!(_Quat);
+
+macro_rules! color_methods {
+    ( $tp:ty, $name:tt ) => {
+        paste! {
+            extern "C" {
+                fn [<_ $name _set_color>]($name: $tp, color: _Color);
+                fn [<_ $name _get_color>]($name: $tp) -> _Color;
+            }
+        }
+    }
+}
+
+macro_rules! position_methods {
+    ( $tp:ty, $name:tt ) => {
+        paste! {
+            extern "C" {
+                fn [<_ $name _set_position>]($name: $tp, pos: _Vec3);
+                fn [<_ $name _get_position>]($name: $tp) -> _Vec3;
+                fn [<_ $name _set_orientation>]($name: $tp, orientation: _Quat);
+                fn [<_ $name _get_orientation>]($name: $tp) -> _Quat;
+            }
+        }
+    }
+}
+
+macro_rules! gameplay_object_methods {
+    ( $tp:ty, $name:tt ) => {
+        paste! {
+            extern "C" {
+                fn [<_create_ $name>](beat: f32) -> $tp;
+                fn [<_beatmap_add_ $name>]($name: $tp);
+                fn [<_beatmap_remove_ $name>]($name: $tp);
+            }
+        }
+        position_methods! { $tp, $name }
+        color_methods! { $tp, $name }
+    };
+}
+
+macro_rules! attrs {
+    ( $tp:ty, $name:tt, $( $attr:ident: $attr_tp:ty ),* $(,)? ) => {
+        extern "C" {
+            paste! {
+                $(
+                fn [<_ $name _get_attr_ $attr>]($name: [<_ $tp>]) -> $attr_tp;
+                fn [<_ $name _set_attr_ $attr>]($name: [<_ $tp>], $attr: $attr_tp);
+                )*
+            }
+        }
+
+        impl $tp {
+            $(
+
+            paste! {
+                pub fn [<get_ $attr>](&self) -> $attr_tp {
+                    unsafe { [<_ $name _get_attr_ $attr>](self._inner) }
+                }
+                pub fn [<set_ $attr>](&self, $attr: $attr_tp) {
+                    unsafe { [<_ $name _set_attr_ $attr>](self._inner, $attr) }
+                }
+            }
+
+            )*
+        }
+    };
+}
+
+gameplay_object_methods! { _ColorNote, color_note }
+gameplay_object_methods! { _BombNote, bomb_note }
+gameplay_object_methods! { _Arc, arc }
+gameplay_object_methods! { _Wall, wall }
+gameplay_object_methods! { _ChainHeadNote, chain_head_note }
+gameplay_object_methods! { _ChainLinkNote, chain_link_note }
+gameplay_object_methods! { _ChainNote, chain_note }
+
+color_methods! { _Saber, saber }
 
 extern "C" {
-    fn _create_color_note(beat: f32) -> _ColorNote;
-    fn _create_bomb_note(beat: f32) -> _BombNote;
-
-    fn _beatmap_add_color_note(note: _ColorNote);
-    fn _beatmap_add_bomb_note(bomb: _BombNote);
+    fn _get_left_saber() -> _Saber;
+    fn _get_right_saber() -> _Saber;
 
     fn _log(message: *const c_char);
+
+    // drops a host-managed object such as color notes, vectors, walls, etc
+    fn _drop_reference(ptr: *mut c_char);
+
+
+    fn _vec2_from_native(x: f32, y: f32) -> _Vec2;
+    fn _vec3_from_native(x: f32, y: f32, z: f32) -> _Vec3;
+    fn _vec4_from_native(x: f32, y: f32, z: f32, w: f32) -> _Vec4;
+    fn _quat_from_native(x: f32, y: f32, z: f32, w: f32) -> _Quat;
+
+    fn _color_set_rgb(color: _Color, r: f32, g: f32, b: f32);
+    fn _color_set_rgba(color: _Color, r: f32, g: f32, b: f32, a: f32);
+
 }
 
 macro_rules! cstr {
@@ -62,44 +158,113 @@ impl Log {
 
 }
 
-
-/// Represents a Color Note in the game
-pub struct ColorNote {
-    _note: _ColorNote
-}
-
-/// Represents a Bomb Note in the game
-pub struct BombNote {
-    _bomb: _BombNote
-}
-
-/// Holds all data relevant to the beatmap, the environment, and anything else
-pub struct Beatmap {
-}
-
-
-/// function to add a color note to beat saber, and apply modifiers from other mods
-pub fn create_note(beat: f32) -> ColorNote {
-    unsafe { ColorNote { _note: _create_color_note(beat) } }
-}
-
-/// function to add a bomb note to beat saber, and apply modifiers from other mods
-pub fn create_bomb(beat: f32) -> BombNote {
-    unsafe { BombNote { _bomb: _create_bomb_note(beat) } }
-}
-
-impl Beatmap {
-    /// Adds a ColorNote to the playing beatmap
-    pub fn add_color_note(note: ColorNote) {
-        unsafe {
-            _beatmap_add_color_note(note._note);
+macro_rules! wrapped {
+    ( $name:tt ) => {
+        pub struct $name {
+            _inner: paste! { [<_ $name>] }
         }
+    };
+}
+
+macro_rules! instantiable_obj {
+    ( $ty:tt, $name:tt ) => {
+        wrapped! { $ty }
+        paste! {
+
+            pub fn [<create_ $name>](beat: f32) -> $ty {
+                unsafe { $ty { _inner: [<_create_ $name>](beat) } }
+            }
+
+            impl Beatmap {
+                pub fn [<add_ $name>]($name: $ty) {
+                    unsafe {
+                        [<_beatmap_add_ $name>]($name._inner);
+                    }
+                }
+            }
+        }
+    };
+}
+
+pub struct Beatmap;
+pub struct Data;
+
+instantiable_obj! { ColorNote, color_note }
+instantiable_obj! { BombNote, bomb_note }
+instantiable_obj! { ChainHeadNote, chain_head_note }
+instantiable_obj! { ChainLinkNote, chain_link_note }
+instantiable_obj! { ChainNote, chain_note }
+instantiable_obj! { Arc, arc }
+instantiable_obj! { Wall, wall }
+
+wrapped! { Vec2 }
+
+
+wrapped! { Vec3 }
+wrapped! { Vec4 }
+wrapped! { Quat }
+wrapped! { Color }
+
+attrs! { Vec2, vec2, x: f32, y: f32 }
+attrs! { Vec3, vec3, x: f32, y: f32, z: f32 }
+attrs! { Vec4, vec4, x: f32, y: f32, z: f32, w: f32 }
+attrs! { Quat, quat, x: f32, y: f32, z: f32, w: f32 }
+attrs! { Color, color, r: f32, g: f32, b: f32, a: f32 }
+
+trait UnityConvertible {
+    type UnityType;
+    fn to_unity_type(self) -> Self::UnityType;
+    fn from_unity_type(t: Self::UnityType) -> Self;
+}
+
+impl UnityConvertible for glam::Vec2 {
+    type UnityType = Vec2;
+    fn to_unity_type(self) -> Self::UnityType {
+        Vec2 { _inner: unsafe { _vec2_from_native(self.x, self.y) } }
+    }
+    fn from_unity_type(t: Self::UnityType) -> Self {
+        glam::Vec2::new(t.get_x(), t.get_y())
+    }
+}
+
+impl UnityConvertible for glam::Vec3 {
+    type UnityType = Vec3;
+    fn to_unity_type(self) -> Self::UnityType {
+        Vec3 { _inner: unsafe { _vec3_from_native(self.x, self.y, self.z) } }
+    }
+    fn from_unity_type(t: Self::UnityType) -> Self {
+        glam::Vec3::new(t.get_x(), t.get_y(), t.get_z())
+    }
+}
+
+impl UnityConvertible for glam::Vec4 {
+    type UnityType = Vec4;
+    fn to_unity_type(self) -> Self::UnityType {
+        Vec4 { _inner: unsafe { _vec4_from_native(self.x, self.y, self.z, self.w) } }
+    }
+    fn from_unity_type(t: Self::UnityType) -> Self {
+        glam::Vec4::new(t.get_x(), t.get_y(), t.get_z(), t.get_w())
+    }
+}
+
+impl UnityConvertible for glam::Quat {
+    type UnityType = Quat;
+    fn to_unity_type(self) -> Self::UnityType {
+        Quat { _inner: unsafe { _quat_from_native(self.x, self.y, self.z, self.w) } }
+    }
+    fn from_unity_type(t: Self::UnityType) -> Self {
+        glam::Quat::from_xyzw(t.get_x(), t.get_y(), t.get_z(), t.get_w())
+    }
+}
+
+
+impl Color {
+    pub fn set_rgb(&self, r: f32, g: f32, b: f32) {
+        unsafe { _color_set_rgb(self._inner, r, g, b) };
     }
 
-    pub fn add_bomb_note(bomb: BombNote) {
-        unsafe {
-            _beatmap_add_bomb_note(bomb._bomb);
-        }
+    pub fn set_rgba(&self, r: f32, g: f32, b: f32, a: f32) {
+        unsafe { _color_set_rgba(self._inner, r, g, b, a) };
     }
-
 }
+

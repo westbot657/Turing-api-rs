@@ -14,9 +14,9 @@ This is a work-in-progress and will not be usable until the Turing mod is releas
 ### UnityConvertible
 ```rust
 pub trait UnityConvertible {
-    type UnityType;
-    fn to_unity_type(self) -> Self::UnityType;
-    fn from_unity_type(t: Self::UnityType) -> Self;
+  type UnityType;
+  fn to_unity_type(self) -> Self::UnityType;
+  fn from_unity_type(t: Self::UnityType) -> Self;
 }
 ```
 
@@ -47,6 +47,21 @@ impl Beatmap {
   
 }
 ```
+
+---
+### Data
+```rust
+impl Data {
+
+  pub fn set_temp_value<T>(key: &str, v: T) {...}
+
+  pub fn get_temp_value<T>(key: &str) -> Option<T> {...}
+
+  pub fn remove_temp_value(key: &str) {...}
+
+}
+```
+
 
 ---
 ### Log

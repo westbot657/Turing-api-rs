@@ -1,11 +1,15 @@
+use std::any::Any;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ffi::{c_char, CString};
+use once_cell::unsync::Lazy;
 use paste::paste;
 
 macro_rules! typed_ptr {
     ( $name:ident ) => {
         #[repr(C)]
         #[derive(Copy, Clone)]
-        pub struct $name {
+        struct $name {
             ptr: *mut c_char
         }
     };
@@ -187,7 +191,36 @@ macro_rules! instantiable_obj {
 }
 
 pub struct Beatmap;
+
+thread_local! {
+    static GLOBAL_MAP: Lazy<RefCell<HashMap<String, Box<dyn Any>>>> = Lazy::new(|| {
+        RefCell::new(HashMap::new())
+    });
+}
+
 pub struct Data;
+
+impl Data {
+
+    pub fn set_temp_value<T: Clone + 'static>(key: &str, v: T) {
+        GLOBAL_MAP.with(|map| {
+            map.borrow_mut().insert(key.to_string(), Box::new(v));
+        })
+    }
+
+    pub fn get_temp_value<T: Clone + 'static>(key: &str) -> Option<T> {
+        GLOBAL_MAP.with(|map| {
+            map.borrow().get(key).and_then(|v| v.downcast_ref::<T>()).cloned()
+        })
+    }
+
+    pub fn remove_temp_value(key: &str) {
+        GLOBAL_MAP.with(|map| {
+            map.borrow_mut().remove(key);
+        })
+    }
+
+}
 
 instantiable_obj! { ColorNote, color_note }
 instantiable_obj! { BombNote, bomb_note }
@@ -211,7 +244,7 @@ attrs! { Vec4, vec4, x: f32, y: f32, z: f32, w: f32 }
 attrs! { Quat, quat, x: f32, y: f32, z: f32, w: f32 }
 attrs! { Color, color, r: f32, g: f32, b: f32, a: f32 }
 
-trait UnityConvertible {
+pub trait UnityConvertible {
     type UnityType;
     fn to_unity_type(self) -> Self::UnityType;
     fn from_unity_type(t: Self::UnityType) -> Self;

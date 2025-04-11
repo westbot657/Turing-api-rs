@@ -1,6 +1,6 @@
 [package]
 name = "turing-api"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Westbot"]
 description = "The Turing mod scripting API for Beat Saber"
 repository = "https://github.com/westbot657/Turing-api-rs"
@@ -10,3 +10,4 @@ license = "GPL-3.0-only"
 [dependencies]
 paste = "1.0.15"
 glam = "0.30.1"
+once_cell = "1.21.3"

@@ -7,11 +7,7 @@ use paste::paste;
 
 macro_rules! typed_ptr {
     ( $name:ident ) => {
-        #[repr(C)]
-        #[derive(Copy, Clone)]
-        struct $name {
-            ptr: *mut c_char
-        }
+        type $name = i32;
     };
 }
 

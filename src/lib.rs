@@ -111,11 +111,10 @@ extern "C" {
     // drops a host-managed object such as color notes, vectors, walls, etc
     fn _drop_reference(ptr: *mut c_char);
 
-
-    fn _vec2_from_native(x: f32, y: f32) -> _Vec2;
-    fn _vec3_from_native(x: f32, y: f32, z: f32) -> _Vec3;
-    fn _vec4_from_native(x: f32, y: f32, z: f32, w: f32) -> _Vec4;
-    fn _quat_from_native(x: f32, y: f32, z: f32, w: f32) -> _Quat;
+    fn _vec2_from_xy(x: f32, y: f32) -> _Vec2;
+    fn _vec3_from_xyz(x: f32, y: f32, z: f32) -> _Vec3;
+    fn _vec4_from_xyzw(x: f32, y: f32, z: f32, w: f32) -> _Vec4;
+    fn _quat_from_xyzw(x: f32, y: f32, z: f32, w: f32) -> _Quat;
 
     fn _color_set_rgb(color: _Color, r: f32, g: f32, b: f32);
     fn _color_set_rgba(color: _Color, r: f32, g: f32, b: f32, a: f32);
@@ -227,8 +226,6 @@ instantiable_obj! { Arc, arc }
 instantiable_obj! { Wall, wall }
 
 wrapped! { Vec2 }
-
-
 wrapped! { Vec3 }
 wrapped! { Vec4 }
 wrapped! { Quat }
@@ -249,7 +246,7 @@ pub trait UnityConvertible {
 impl UnityConvertible for glam::Vec2 {
     type UnityType = Vec2;
     fn to_unity_type(self) -> Self::UnityType {
-        Vec2 { _inner: unsafe { _vec2_from_native(self.x, self.y) } }
+        Vec2 { _inner: unsafe { _vec2_from_xy(self.x, self.y) } }
     }
     fn from_unity_type(t: Self::UnityType) -> Self {
         glam::Vec2::new(t.get_x(), t.get_y())
@@ -259,7 +256,7 @@ impl UnityConvertible for glam::Vec2 {
 impl UnityConvertible for glam::Vec3 {
     type UnityType = Vec3;
     fn to_unity_type(self) -> Self::UnityType {
-        Vec3 { _inner: unsafe { _vec3_from_native(self.x, self.y, self.z) } }
+        Vec3 { _inner: unsafe { _vec3_from_xyz(self.x, self.y, self.z) } }
     }
     fn from_unity_type(t: Self::UnityType) -> Self {
         glam::Vec3::new(t.get_x(), t.get_y(), t.get_z())
@@ -269,7 +266,7 @@ impl UnityConvertible for glam::Vec3 {
 impl UnityConvertible for glam::Vec4 {
     type UnityType = Vec4;
     fn to_unity_type(self) -> Self::UnityType {
-        Vec4 { _inner: unsafe { _vec4_from_native(self.x, self.y, self.z, self.w) } }
+        Vec4 { _inner: unsafe { _vec4_from_xyzw(self.x, self.y, self.z, self.w) } }
     }
     fn from_unity_type(t: Self::UnityType) -> Self {
         glam::Vec4::new(t.get_x(), t.get_y(), t.get_z(), t.get_w())
@@ -279,7 +276,7 @@ impl UnityConvertible for glam::Vec4 {
 impl UnityConvertible for glam::Quat {
     type UnityType = Quat;
     fn to_unity_type(self) -> Self::UnityType {
-        Quat { _inner: unsafe { _quat_from_native(self.x, self.y, self.z, self.w) } }
+        Quat { _inner: unsafe { _quat_from_xyzw(self.x, self.y, self.z, self.w) } }
     }
     fn from_unity_type(t: Self::UnityType) -> Self {
         glam::Quat::from_xyzw(t.get_x(), t.get_y(), t.get_z(), t.get_w())

@@ -69,8 +69,8 @@ macro_rules! attrs {
         extern "C" {
             paste! {
                 $(
-                fn [<_ $name _get_attr_ $attr>]($name: [<_ $tp>]) -> $attr_tp;
-                fn [<_ $name _set_attr_ $attr>]($name: [<_ $tp>], $attr: $attr_tp);
+                fn [<_ $name _get_ $attr>]($name: [<_ $tp>]) -> $attr_tp;
+                fn [<_ $name _set_ $attr>]($name: [<_ $tp>], $attr: $attr_tp);
                 )*
             }
         }
@@ -80,10 +80,10 @@ macro_rules! attrs {
 
             paste! {
                 pub fn [<get_ $attr>](&self) -> $attr_tp {
-                    unsafe { [<_ $name _get_attr_ $attr>](self._inner) }
+                    unsafe { [<_ $name _get_ $attr>](self._inner) }
                 }
                 pub fn [<set_ $attr>](&self, $attr: $attr_tp) {
-                    unsafe { [<_ $name _set_attr_ $attr>](self._inner, $attr) }
+                    unsafe { [<_ $name _set_ $attr>](self._inner, $attr) }
                 }
             }
 

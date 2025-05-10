@@ -1,7 +1,8 @@
+use std::alloc::Layout;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::{c_char, CString};
+use std::ffi::{c_char, c_void, CString};
 use once_cell::unsync::Lazy;
 use paste::paste;
 
@@ -57,6 +58,7 @@ macro_rules! gameplay_object_methods {
                 fn [<_create_ $name>](beat: f32) -> $tp;
                 fn [<_beatmap_add_ $name>]($name: $tp);
                 fn [<_beatmap_remove_ $name>]($name: $tp);
+                fn [<_beatmap_get_ $name _at_beat>](beat: f32) -> $tp;
             }
         }
         position_methods! { $tp, $name }
@@ -102,7 +104,22 @@ gameplay_object_methods! { _ChainNote, chain_note }
 
 color_methods! { _Saber, saber }
 
+/// Required for the wasm host to be able to reliably allocate memory for any language
+extern "C" fn _malloc(size: i32) -> *const c_void {
+    unsafe {
+         std::alloc::alloc(Layout::from_size_align(size as usize, 8).unwrap()) as *const c_void
+    }
+}
+
+/// Required for the wasm host to be able to reliably deallocate memory for any language
+extern "C" fn _free(ptr: *mut c_void, size: i32) {
+    unsafe {
+        std::alloc::dealloc(ptr as *mut u8, Layout::from_size_align(size as usize, 8).unwrap());
+    }
+}
+
 extern "C" {
+
     fn _get_left_saber() -> _Saber;
     fn _get_right_saber() -> _Saber;
 
@@ -118,6 +135,23 @@ extern "C" {
 
     fn _color_set_rgb(color: _Color, r: f32, g: f32, b: f32);
     fn _color_set_rgba(color: _Color, r: f32, g: f32, b: f32, a: f32);
+
+    fn _data_contains_persistent_i32(key: *const c_char) -> bool;
+    fn _data_contains_persistent_f32(key: *const c_char) -> bool;
+    fn _data_contains_persistent_str(key: *const c_char) -> bool;
+
+    fn _data_store_persistent_i32(key: *const c_char, value: i32);
+    fn _data_store_persistent_f32(key: *const c_char, value: f32);
+    fn _data_store_persistent_str(key: *const c_char, value: *const c_char);
+
+    fn _data_access_persistent_i32(key: *const c_char) -> i32;
+    fn _data_access_persistent_f32(key: *const c_char) -> f32;
+    fn _data_access_persistent_str(key: *const c_char) -> *const c_char;
+
+    fn _data_remove_persistent_i32(key: *const c_char);
+    fn _data_remove_persistent_f32(key: *const c_char);
+    fn _data_remove_persistent_str(key: *const c_char);
+
 
 }
 
@@ -180,6 +214,19 @@ macro_rules! instantiable_obj {
                         [<_beatmap_add_ $name>]($name._inner);
                     }
                 }
+
+                pub fn [<remove_ $name>]($name: $ty) {
+                    unsafe {
+                        [<_beatmap_remove_ $name>]($name._inner);
+                    }
+                }
+
+                pub fn [<get_ $name _at_beat>](beat: f32) {
+                    unsafe {
+                        [<_beatmap_get_ $name _at_beat>](beat);
+                    }
+                }
+
             }
         }
     };
@@ -213,6 +260,41 @@ impl Data {
         GLOBAL_MAP.with(|map| {
             map.borrow_mut().remove(key);
         })
+    }
+
+    pub fn get_persistent_i32(key: &str) -> Option<i32> {
+        let c_str = CString::new(key).unwrap();
+        unsafe {
+            if _data_contains_persistent_i32(c_str.as_ptr()) {
+                Some(_data_access_persistent_i32(c_str.as_ptr()))
+            } else {
+                None
+            }
+        }
+    }
+
+    pub fn get_persistent_f32(key: &str) -> Option<f32> {
+        let c_str = CString::new(key).unwrap();
+        unsafe {
+            if _data_contains_persistent_f32(c_str.as_ptr()) {
+                Some(_data_access_persistent_f32(c_str.as_ptr()))
+            } else {
+                None
+            }
+        }
+    }
+
+    pub fn get_persistent_str(key: &str) -> Option<String> {
+        let c_str = CString::new(key).unwrap();
+        unsafe {
+            if _data_contains_persistent_str(c_str.as_ptr()) {
+                let ptr = _data_access_persistent_str(c_str.as_ptr());
+                let cstr = CString::from_raw(ptr as *mut c_char);
+                Some(cstr.to_string_lossy().to_string())
+            } else {
+                None
+            }
+        }
     }
 
 }
